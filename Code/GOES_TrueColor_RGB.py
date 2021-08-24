@@ -1,6 +1,6 @@
 #################################################################
-# GOES-16 Airmass RGB plotting code example
-# Uses channels 8, 10, 12, 13 to build 
+# GOES-16 True Color RGB plotting code example
+# Uses channels 2, 3, 1 to build 
 #
 # BEFORE RUNNING THIS CODE: Make sure data types match up...
 # If there are 36 CH1 files from 16 UTC to 19 UTC, there damn well # better be 36 for CH 2 and CH 3 at the same times!!!!
@@ -67,89 +67,76 @@ y = dat.y # corresponds to lon_rad_1d_CH2
 
 pc = ccrs.PlateCarree()
 
-
 #################################################################
-# Need 4 channels to build Airmass RGB:
-# File 1 = L2 ABI CMIP M6 C08 G16
-# File 2 = L2 ABI CMIP M6 C10 G16
-# File 3 = L2 ABI CMIP M6 C12 G16
-# File 4 = L2 ABI CMIP M6 C13 G16
+# Need 3 channels to build Airmass RGB:
+# File 1 = L2 ABI CMIP M6 C02 G16
+# File 2 = L2 ABI CMIP M6 C03 G16
+# File 3 = L2 ABI CMIP M6 C01 G16
 #################################################################
 
 f1=np.array([])
 f2=np.array([])
 f3=np.array([])
-f4=np.array([])
 
 for file in os.listdir(directory):
     filename = os.fsdecode(file)
-    if filename.startswith("OR_ABI-L2-CMIPC-M6C08_G16_"):
+    if filename.startswith("OR_ABI-L2-CMIPC-M6C02_G16_"):
         f1=np.append(f1, filename)
-    if filename.startswith("OR_ABI-L2-CMIPC-M6C10_G16_"):
+    if filename.startswith("OR_ABI-L2-CMIPC-M6C03_G16_"):
         f2=np.append(f2,filename)
-    if filename.startswith("OR_ABI-L2-CMIPC-M6C12_G16_"):
+    if filename.startswith("OR_ABI-L2-CMIPC-M6C01_G16_"):
         f3=np.append(f3, filename)
-    if filename.startswith("OR_ABI-L2-CMIPC-M6C13_G16_"):
-        f4=np.append(f4, filename)
 
 
 for i in range(0, len(f1)):
     file1=f1[i]
     file2=f2[i]
     file3=f3[i]
-    file4=f4[i]
     print("Starting File: ", i+1)
     ##############################################
-    # file 1: CH. 8
-    lon_CH8,lat_CH8,data_CH8,data_units_CH8,data_time_grab_CH8,data_long_name_CH8,band_id_CH8,band_wavelength_CH8,band_units_CH8,var_name_CH8, lat_rad_CH8, lon_rad_CH8, lat_rad_1d_CH8, lon_rad_1d_CH8 = lat_lon_reproj(directory, file1)
+    # file 1: CH. 2
+    lon_CH2,lat_CH2,data_CH2,data_units_CH2,data_time_grab_CH2,data_long_name_CH2,band_id_CH2,band_wavelength_CH2,band_units_CH2,var_name_CH2, lat_rad_CH2, lon_rad_CH2, lat_rad_1d_CH2, lon_rad_1d_CH2 = lat_lon_reproj(directory, file1)
     ##############################################
-    # file 2: CH. 10
-    lon_CH10,lat_CH10,data_CH10,data_units_CH10,data_time_grab_CH10,data_long_name_CH10,band_id_CH10,band_wavelength_CH10,band_units_CH10,var_name_CH10, lat_rad_CH10, lon_rad_CH10, lat_rad_1d_CH10, lon_rad_1d_CH10  = lat_lon_reproj(directory, file2)
+    # file 2: CH. 3
+    lon_CH3,lat_CH3,data_CH3,data_units_CH3,data_time_grab_CH3,data_long_name_CH3,band_id_CH3,band_wavelength_CH3,band_units_CH3,var_name_CH3, lat_rad_CH3, lon_rad_CH3, lat_rad_1d_CH3, lon_rad_1d_CH3  = lat_lon_reproj(directory, file2)
     ##############################################
-    # file 3: CH. 12
-    lon_CH12,lat_CH12,data_CH12,data_units_CH12,data_time_grab_CH12,data_long_name_CH12,band_id_CH12,band_wavelength_CH12,band_units_CH12,var_name_CH12, lat_rad_CH12, lon_rad_CH12, lat_rad_1d_CH12, lon_rad_1d_CH12  = lat_lon_reproj(directory, file3)
-    ##############################################
-    # file 4: CH. 13
-    lon_CH13,lat_CH13,data_CH13,data_units_CH13,data_time_grab_CH13,data_long_name_CH13,band_id_CH13,band_wavelength_CH13,band_units_CH13,var_name_CH13, lat_rad_CH13, lon_rad_CH13, lat_rad_1d_CH13, lon_rad_1d_CH13  = lat_lon_reproj(directory, file4)
+    # file 3: CH. 1
+    lon_CH1,lat_CH1,data_CH1,data_units_CH1,data_time_grab_CH1,data_long_name_CH1,band_id_CH1,band_wavelength_CH1,band_units_CH1,var_name_CH1, lat_rad_CH1, lon_rad_CH1, lat_rad_1d_CH1, lon_rad_1d_CH1  = lat_lon_reproj(directory, file3)
     ###################################################
-    # Convert to Celsius
-    data_CH8 = data_CH8 - 273.15
-    data_CH10 = data_CH10 - 273.15
-    data_CH12 = data_CH12 - 273.15
-    data_CH13 = data_CH13 - 273.15
+    # Resize CH2 
+    data_CH2_new=rebin(data_CH2,(3000,5000))
     ###################################################
     # Create RGB components
-    R = data_CH8 - data_CH10
-    G = data_CH12 - data_CH13
-    B = data_CH8
-    # Minimuns and Maximuns
-    Rmin = -26.2
-    Rmax = 0.6 
-    Gmin = -43.2
-    Gmax = 6.7
-    Bmin = -29.25
-    Bmax = -64.65
-    R[R > Rmax] = Rmax
-    G[G > Gmax] = Gmax
-    B[B < Bmin] = Bmin
+    R = np.clip(data_CH2_new, 0, 1)
+    G = np.clip(data_CH3, 0, 1)
+    B = np.clip(data_CH1, 0, 1)
     ###################################################
     # Normalize the RGBs
     # Choose the gamma
-    gamma = 1
+    gamma = 2.2
     # Normalize the data
-    R = ((R - Rmin) / (Rmax - Rmin)) ** (1/gamma)
-    G = ((G - Gmin) / (Gmax - Gmin)) ** (1/gamma)
-    B = ((B - Bmin) / (Bmax - Bmin)) ** (1/gamma)
+    R = np.power(R, 1/gamma)
+    G = np.power(G, 1/gamma)
+    B = np.power(B, 1/gamma)
+    # Get new green
+    G_true = 0.45*R + 0.1*G + 0.45*B
+    G_true=np.clip(G_true, 0, 1)
     ###################################################
     # Stack the RGBs
-    RGB = np.stack([R, G, B], axis=2)
+    RGB = np.stack([R, G_true, B], axis=2)
     ###################################################
     # Plot CONUS PlateCarree projection
     date_string = data_time_grab_CH1[5:7] + '_' + data_time_grab_CH1[8:10] + '_' + data_time_grab_CH1[0:4] + '_'+ data_time_grab_CH1[11:13]+data_time_grab_CH1[14:16]+data_time_grab_CH1[17:19]
-    file_string='G16_RGB_Airmass_'+date_string
-    zoom_string='Zoom_G16_RGB_Airmass_'+date_string
-    output1=output_root+date+'\\Airmass\\Full\\'
-    output2=output_root+date+'\\Airmass\\Zoom\\'
+    file_string='G16_RGB_GeoColor_'+date_string
+    zoom_string='Zoom_G16_RGB_GeoColor_'+date_string
+    output1=output_root+date+'\\GeoColor\\Full\\'
+    output2=output_root+date+'\\GeoColor\\Zoom\\'
+    if not os.path.exists(output1):
+        os.makedirs(output1)
+    if not os.path.exists(output2):
+        os.makedirs(output2)
+    #
+    #
     with PdfPages(os.path.join(output1, file_string + '.pdf')) as export_pdf:
         fig = plt.figure(figsize=(15, 12))
         ax = fig.add_subplot(1, 1, 1, projection=pc)
@@ -160,7 +147,7 @@ for i in range(0, len(f1)):
         ax.coastlines(resolution='50m', color='black', linewidth=1)
         ax.add_feature(ccrs.cartopy.feature.STATES)
         ax.gridlines(color='black', alpha=0.5, linestyle='--', linewidth=0.5)
-        ax.set_title('GOES-16 Airmass', fontweight='bold', loc='left', fontsize=30)
+        ax.set_title('GOES-16 GeoColor', fontweight='bold', loc='left', fontsize=30)
         ax.set_title(data_time_grab_CH1[0:19] + ' UTC',loc='right', fontsize=24)
         plt.xticks(fontsize=24)
         plt.yticks(fontsize=24)
@@ -200,7 +187,7 @@ for i in range(0, len(f1)):
         ax.coastlines(resolution='50m', color='black', linewidth=1)
         ax.add_feature(ccrs.cartopy.feature.STATES)
         ax.gridlines(color='black', alpha=0.5, linestyle='--', linewidth=0.5)
-        ax.set_title('GOES-16 Airmass', fontweight='bold', loc='left', fontsize=30)
+        ax.set_title('GOES-16 GeoColor', fontweight='bold', loc='left', fontsize=30)
         ax.set_title(data_time_grab_CH1[0:19] + ' UTC',loc='right', fontsize=24)
         plt.xticks(fontsize=24)
         plt.yticks(fontsize=24)
