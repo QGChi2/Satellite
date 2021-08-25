@@ -7,7 +7,6 @@ import pandas as pd
 import numpy as np
 import geopandas as gpd
 import matplotlib.pyplot as plt
-import os
 import netCDF4 as nc
 from matplotlib.backends.backend_pdf import PdfPages
 import cartopy.crs as ccrs
@@ -16,6 +15,9 @@ import cartopy.feature as cfeature
 import matplotlib as mpl
 import xarray
 import metpy
+from osgeo import gdal
+from osgeo import osr
+import os, sys
 
 # Custom
 from GOES_LL_Conv import lat_lon_reproj
@@ -157,16 +159,33 @@ with PdfPages(os.path.join(output1, file_string + '.pdf')) as export_pdf:
     export_pdf.savefig(fig)
     plt.close()
 
+#################################################################################################
+# Create GeoTiff
+
+file_string2='G16_RGB_Airmass_'+date_string
 
 
+#  Initialize the Image Size
+image_size = R.shape
 
 
+# set geotransform
+nx = image_size[0]
+ny = image_size[1]
+xmin, ymin, xmax, ymax = [np.min(lon_CH1), np.min(lat_CH1), np.max(lon_CH1), np.max(lat_CH1)]
+xres = (xmax - xmin) / float(nx)
+yres = (ymax - ymin) / float(ny)
+geotransform = (xmin, xres, 0, ymax, 0, -yres)
 
+# create the 3-band raster file
+dst_ds = gdal.GetDriverByName('GTiff').Create(os.path.join(output1, file_string2 + '.tif'), ny, nx, 3, gdal.GDT_Float32)
 
-
- 
-
-
-
-
-
+dst_ds.SetGeoTransform(geotransform)    # specify coords
+srs = osr.SpatialReference()            # establish encoding
+srs.ImportFromEPSG(3857)                # WGS84 lat/long
+dst_ds.SetProjection(srs.ExportToWkt()) # export coords to file
+dst_ds.GetRasterBand(1).WriteArray(R)   # write r-band to the raster
+dst_ds.GetRasterBand(2).WriteArray(G)   # write g-band to the raster
+dst_ds.GetRasterBand(3).WriteArray(B)   # write b-band to the raster
+dst_ds.FlushCache()                     # write to disk
+dst_ds = None

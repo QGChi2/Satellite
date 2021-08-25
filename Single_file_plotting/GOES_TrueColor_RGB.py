@@ -8,7 +8,6 @@ import pandas as pd
 import numpy as np
 import geopandas as gpd
 import matplotlib.pyplot as plt
-import os
 import netCDF4 as nc
 from matplotlib.backends.backend_pdf import PdfPages
 import cartopy.crs as ccrs
@@ -17,6 +16,9 @@ import cartopy.feature as cfeature
 import matplotlib as mpl
 import xarray
 import metpy
+from osgeo import gdal
+from osgeo import osr
+import os, sys
 
 # Custom
 from GOES_LL_Conv import lat_lon_reproj
@@ -170,135 +172,34 @@ with PdfPages(os.path.join(output1, Zoom_string + '.pdf')) as export_pdf:
 
 
 
+#################################################################################################
+# Create GeoTiff
+
+file_string2='G16_RGB_GeoColor_'+date_string
 
 
+#  Initialize the Image Size
+image_size = R.shape
 
 
+# set geotransform
+nx = image_size[0]
+ny = image_size[1]
+xmin, ymin, xmax, ymax = [np.min(lon_CH1), np.min(lat_CH1), np.max(lon_CH1), np.max(lat_CH1)]
+xres = (xmax - xmin) / float(nx)
+yres = (ymax - ymin) / float(ny)
+geotransform = (xmin, xres, 0, ymax, 0, -yres)
 
+# create the 3-band raster file
+dst_ds = gdal.GetDriverByName('GTiff').Create(os.path.join(output1, file_string2 + '.tif'), ny, nx, 3, gdal.GDT_Float32)
 
-
-
-
-##################################################################
-# Below here is Connor's lame attempt to get the data output to 
-# AGOL
-##################################################################
-
-
-##################################################################
-# Trying to make a kml
-
-
-from simplekml import (Kml, OverlayXY, ScreenXY, Units, RotationXY,
-                       AltitudeMode, Camera)
-
-
-def make_kml(llcrnrlon, llcrnrlat, urcrnrlon, urcrnrlat,
-             figs, colorbar=None, **kw):
-    """TODO: LatLon bbox, list of figs, optional colorbar figure,
-    and several simplekml kw..."""
-
-    kml = Kml()
-    altitude = kw.pop('altitude', 2e7)
-    roll = kw.pop('roll', 0)
-    tilt = kw.pop('tilt', 0)
-    altitudemode = kw.pop('altitudemode', AltitudeMode.relativetoground)
-    camera = Camera(latitude=np.mean([urcrnrlat, llcrnrlat]),
-                    longitude=np.mean([urcrnrlon, llcrnrlon]),
-                    altitude=altitude, roll=roll, tilt=tilt,
-                    altitudemode=altitudemode)
-
-    kml.document.camera = camera
-    draworder = 0
-    for fig in figs:  # NOTE: Overlays are limited to the same bbox.
-        draworder += 1
-        ground = kml.newgroundoverlay(name='GroundOverlay')
-        ground.draworder = draworder
-        ground.visibility = kw.pop('visibility', 1)
-        ground.name = kw.pop('name', 'overlay')
-        ground.color = kw.pop('color', '9effffff')
-        ground.atomauthor = kw.pop('author', 'ocefpaf')
-        ground.latlonbox.rotation = kw.pop('rotation', 0)
-        ground.description = kw.pop('description', 'Matplotlib figure')
-        ground.gxaltitudemode = kw.pop('gxaltitudemode',
-                                       'clampToSeaFloor')
-        ground.icon.href = fig
-        ground.latlonbox.east = llcrnrlon
-        ground.latlonbox.south = llcrnrlat
-        ground.latlonbox.north = urcrnrlat
-        ground.latlonbox.west = urcrnrlon
-
-    if colorbar:  # Options for colorbar are hard-coded (to avoid a big mess).
-        screen = kml.newscreenoverlay(name='ScreenOverlay')
-        screen.icon.href = colorbar
-        screen.overlayxy = OverlayXY(x=0, y=0,
-                                     xunits=Units.fraction,
-                                     yunits=Units.fraction)
-        screen.screenxy = ScreenXY(x=0.015, y=0.075,
-                                   xunits=Units.fraction,
-                                   yunits=Units.fraction)
-        screen.rotationXY = RotationXY(x=0.5, y=0.5,
-                                       xunits=Units.fraction,
-                                       yunits=Units.fraction)
-        screen.size.x = 0
-        screen.size.y = 0
-        screen.size.xunits = Units.fraction
-        screen.size.yunits = Units.fraction
-        screen.visibility = 1
-
-    kmzfile = kw.pop('kmzfile', 'overlay.kmz')
-    kml.savekmz(kmzfile)
-
-
-
-make_kml(llcrnrlon=lon.min(), llcrnrlat=lat.min(),
-         urcrnrlon=lon.max(), urcrnrlat=lat.max(),
-         figs=['overlay1.png', 'overlay2.png'], colorbar=None)
-
-
-
-
-
-
-
-
-
-
-##################################################################
-# Trying to make a GeoJSON
-
-col = ['lat', 'long','R', 'G', 'B']
-lat_out=lat_CH1.flatten().data
-lon_out=lon_CH1.flatten().data
-R_out=R.flatten().data
-G_out=G_true.flatten().data
-B_out=B.flatten().data
-
-
-df = pd.DataFrame(list(zip(lat_out, lon_out, R_out, G_out, B_out)), columns=col)
-
-
-
-
-
-import geojson
-
-
-
-def data2geojson(df):
-    features = []
-    insert_features = lambda X: features.append(
-            geojson.Feature(geometry=geojson.Point((X["long"],
-                                                    X["lat"],
-                                                    X["R"],
-                                                    X["G"],
-                                                    X["B"])),
-                            properties=()))
-    df.apply(insert_features, axis=1)
-    with open('map1.geojson', 'w', encoding='utf8') as fp:
-        geojson.dump(geojson.FeatureCollection(features), fp, sort_keys=True, ensure_ascii=False)
-
-
-
-data2geojson(df)
+dst_ds.SetGeoTransform(geotransform)    # specify coords
+srs = osr.SpatialReference()            # establish encoding
+srs.ImportFromEPSG(3857)                # WGS84 lat/long
+dst_ds.SetProjection(srs.ExportToWkt()) # export coords to file
+dst_ds.GetRasterBand(1).WriteArray(R)   # write r-band to the raster
+dst_ds.GetRasterBand(2).WriteArray(G_true)   # write g-band to the raster
+dst_ds.GetRasterBand(3).WriteArray(B)   # write b-band to the raster
+dst_ds.FlushCache()                     # write to disk
+dst_ds = None
 
